@@ -9,6 +9,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <dake/math/matrix.hpp>
+#include <dake/gl/obj.hpp>
 #include <dake/gl/shader.hpp>
 #include <dake/gl/vertex_array.hpp>
 #include <dake/gl/vertex_attrib.hpp>
@@ -25,7 +26,7 @@ using namespace dake::gl;
 RenderOutput::RenderOutput(QGLFormat fmt, QWidget *pw):
     QGLWidget(fmt, pw),
     proj(mat4::identity()),
-    mv  (mat4::identity().translated(vec3(0.f, 0.f, -5.f)))
+    mv  (mat4::identity().translated(vec3(0.f, 0.f, -40.f)))
 {
     redraw_timer = new QTimer(this);
     connect(redraw_timer, SIGNAL(timeout()), this, SLOT(updateGL()));
@@ -59,17 +60,17 @@ void RenderOutput::initializeGL(void)
     glEnable(GL_DEPTH_TEST);
 
     bone_prg = new gl::program {gl::shader::vert("assets/bone_vert.glsl"), gl::shader::frag("assets/bone_frag.glsl")};
-    bone_prg->bind_attrib("in_pos", 0);
-    bone_prg->bind_frag("out_col", 0);
+    cone_prg = new gl::program {gl::shader::vert("assets/cone_vert.glsl"), gl::shader::frag("assets/bone_frag.glsl")};
 
-    bone_va = new gl::vertex_array;
-    bone_va->set_elements(2);
+    for (gl::program **prg: {&bone_prg, &cone_prg}) {
+        (*prg)->bind_attrib("in_pos", 0);
+        (*prg)->bind_attrib("in_nrm", 1);
+        (*prg)->bind_frag("out_col", 0);
+    }
 
-    float line_vert[] = {
-        0.f, 1.f
-    };
-    bone_va->attrib(0)->format(1);
-    bone_va->attrib(0)->data(line_vert);
+    // lel
+    bone_va = gl::load_obj("assets/cylinder.obj").sections.front().make_vertex_array(0, -1, 1);
+    cone_va = gl::load_obj("assets/cone.obj").sections.front().make_vertex_array(0, -1, 1);
 
     redraw_timer->start(0);
 }
@@ -105,6 +106,9 @@ void RenderOutput::render_asf(void)
     bone_prg->use();
     bone_prg->uniform<mat4>("proj") = proj;
 
+    cone_prg->use();
+    cone_prg->uniform<mat4>("proj") = proj;
+
     mv.translate(asf_model->root_position);
     render_asf_bone(asf_model->root, mv, 0);
 }
@@ -126,15 +130,26 @@ void RenderOutput::render_asf_bone(int bi, const mat4 &parent_mv, int hdepth)
 {
     ASF::Bone &bone = asf_model->bones[bi];
 
-    bone_prg->uniform<vec3>("color") = colors[hdepth % 8];
-    bone_prg->uniform<vec3>("direction") = bone.direction;
-    bone_prg->uniform<float>("length") = bone.length;
-    bone_prg->uniform<mat4>("mv") = parent_mv;
+    vec3 rot_axis = vec3(0.f, 1.f, 0.f).cross(bone.direction.normalized());
+    float angle = acosf(vec3(0.f, 1.f, 0.f).dot(bone.direction.normalized()));
 
-    bone_va->draw(GL_LINES);
+    mat4 cmv(parent_mv.rotated(angle, rot_axis));
+
+    for (bool tip: {false, true}) {
+        gl::program *prg = tip ? cone_prg : bone_prg;
+        gl::vertex_array *va = tip ? cone_va : bone_va;
+
+        prg->use();
+        prg->uniform<vec3>("color") = colors[hdepth % 8];
+        prg->uniform<float>("length") = bone.length;
+        prg->uniform<mat4>("mv") = cmv;
+        prg->uniform<mat3>("nrm_mat") = mat3(cmv).transposed_inverse();
+
+        va->draw(GL_TRIANGLES);
+    }
 
     for (int child = bone.first_child; child >= 0; child = asf_model->bones[child].next_sibling) {
-        mat4 cmv(parent_mv.translated(bone.length * bone.direction));
+        cmv = parent_mv.translated(bone.length * bone.direction);
         render_asf_bone(child, cmv, hdepth + 1);
     }
 }
@@ -182,7 +197,7 @@ void RenderOutput::mouseMoveEvent(QMouseEvent *evt)
                              .rotated(dx / 4.f * static_cast<float>(M_PI) / 180.f, vec3(0.f, 1.f, 0.f))
                             * mv;
     } else {
-        mv = mat4::identity().translated(vec3(-dx / 100.f, dy / 100.f, 0.f)) * mv;
+        mv = mat4::identity().translated(vec3(-dx / 20.f, dy / 20.f, 0.f)) * mv;
     }
 
     reload_uniforms = true;
