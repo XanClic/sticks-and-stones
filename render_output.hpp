@@ -57,8 +57,8 @@ class RenderOutput:
         QTimer *redraw_timer;
         dake::math::mat4 proj, mv;
         dake::math::vec3 light_dir;
-        dake::gl::program *bone_prg;
-        dake::gl::vertex_array *bone_va;
+        dake::gl::program *bone_prg, *cone_prg;
+        dake::gl::vertex_array *bone_va, *cone_va;
         bool rotate_camera = false, move_camera = false;
         bool reload_uniforms = true;
         float rot_l_x, rot_l_y;
