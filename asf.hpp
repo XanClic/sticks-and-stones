@@ -14,7 +14,6 @@ class ASF {
     public:
         enum Axis {
             RX, RY, RZ,
-            LX, LY, LZ,
             TX, TY, TZ
         };
 

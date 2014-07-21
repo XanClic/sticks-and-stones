@@ -27,10 +27,10 @@ ExternalProject_Get_Property(dake binary_dir)
 include_directories(${binary_dir}/include ${PNG_INCLUDE})
 link_directories(${binary_dir})
 
-add_executable(cg2p1 main.cpp asf.cpp window.cpp render_output.cpp)
-target_link_libraries(cg2p1 libdake.a ${OPENGL_LIBRARIES} ${PNG_LIBRARIES})
-add_dependencies(cg2p1 dake)
+add_executable(cg2p2 main.cpp asf.cpp window.cpp render_output.cpp)
+target_link_libraries(cg2p2 libdake.a ${OPENGL_LIBRARIES} ${PNG_LIBRARIES})
+add_dependencies(cg2p2 dake)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O3 -g2 -Wall -Wextra -Wshadow")
 
-qt5_use_modules(cg2p1 Core Gui OpenGL)
+qt5_use_modules(cg2p2 Core Gui OpenGL)
