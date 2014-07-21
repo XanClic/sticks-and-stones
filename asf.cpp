@@ -210,7 +210,7 @@ void ASF::read_root_section(std::ifstream &s)
     Bone root_bone;
     root_bone.id = 0;
     root_bone.name = "root";
-    root_bone.direction = root_orientation; // XXX
+    root_bone.direction = vec3(0.f, 1.f, 0.f);
 
     bones.push_back(root_bone);
     root = bones.size() - 1;
@@ -249,6 +249,7 @@ void ASF::read_bonedata_section(std::ifstream &s)
                 line_ss >> bone.name;
             } else if (keyword == "direction") {
                 line_ss >> bone.direction.x() >> bone.direction.y() >> bone.direction.z();
+                bone.direction.normalize();
             } else if (keyword == "length") {
                 line_ss >> bone.length;
             } else if (keyword == "axis") {
@@ -279,13 +280,7 @@ void ASF::read_bonedata_section(std::ifstream &s)
                         bone.dof_order.push_back(RY);
                     } else if (dof_axis == "rz") {
                         bone.dof_order.push_back(RZ);
-                    } else if (dof_axis == "lx") { // XXX: Is this correct?
-                        bone.dof_order.push_back(LX);
-                    } else if (dof_axis == "ly") {
-                        bone.dof_order.push_back(LY);
-                    } else if (dof_axis == "lz") {
-                        bone.dof_order.push_back(LZ);
-                    } else {
+                    } else if (dof_axis != "l") {
                         throw std::invalid_argument("Invalid DOF axis given for bone " + bone.name);
                     }
                 }
@@ -320,6 +315,9 @@ void ASF::read_bonedata_section(std::ifstream &s)
                     if (!success) {
                         throw std::invalid_argument("Expected limit specification, could not match");
                     }
+
+                    limit.first  *= angle_unit;
+                    limit.second *= angle_unit;
                 }
             } else {
                 fprintf(stderr, "Warning: Unknown keyword for bone %s\n", bone.name.c_str());
