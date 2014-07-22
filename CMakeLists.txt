@@ -27,7 +27,7 @@ ExternalProject_Get_Property(dake binary_dir)
 include_directories(${binary_dir}/include ${PNG_INCLUDE})
 link_directories(${binary_dir})
 
-add_executable(cg2p2 main.cpp asf.cpp window.cpp render_output.cpp)
+add_executable(cg2p2 main.cpp amc.cpp asf.cpp window.cpp render_output.cpp)
 target_link_libraries(cg2p2 libdake.a ${OPENGL_LIBRARIES} ${PNG_LIBRARIES})
 add_dependencies(cg2p2 dake)
 
