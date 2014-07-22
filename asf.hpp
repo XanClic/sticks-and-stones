@@ -27,14 +27,28 @@ class ASF {
             dake::math::vec3 axis = dake::math::vec3::zero();
             std::vector<Axis> axis_order, dof_order;
             std::unordered_map<int, std::pair<float, float>> dof;
+
+            // Local transformation (from the axis)
+            dake::math::mat4 local_trans, local_trans_inv;
+            // Motion transformation (some site calls it "local transform", but
+            // it isn't even in the local coordinate system)
+            dake::math::mat4 motion_trans;
+            // Transforms global (0; 1; 0) to Bone.direction
+            dake::math::mat4 bone_dir_trans;
         };
 
         ASF(std::ifstream &s);
 
-        std::vector<Axis> root_axis, root_order;
-        dake::math::vec3 root_position, root_orientation;
-        std::vector<Bone> bones;
-        int root = -1;
+        std::vector<Bone> &bones(void) { return bs; }
+        const std::vector<Bone> &bones(void) const { return bs; }
+
+        const std::vector<Axis> &root_axis(void) const { return r_axis; }
+        const std::vector<Axis> &root_order(void) const { return r_order; }
+        const dake::math::vec3 &root_position(void) const { return r_pos; }
+        const dake::math::vec3 &root_orientation(void) const { return r_orient; }
+        int root_index(void) const { return root; }
+
+        void reset_transforms(void);
 
 
     private:
@@ -45,8 +59,15 @@ class ASF {
         void read_hierarchy_section(std::ifstream &s);
         Bone &find_bone(const std::string &name);
         bool getline(std::ifstream &s);
+        void reset_bone_transform(int bi, const dake::math::mat4 &mv);
 
         void dump_hierarchy(int parent = -1, int indentation = 0) const;
+
+        std::vector<Bone> bs;
+
+        std::vector<Axis> r_axis, r_order;
+        dake::math::vec3 r_pos, r_orient;
+        int root = -1;
 
         float mass_default = 1.f;
         float length_default = 1.f;

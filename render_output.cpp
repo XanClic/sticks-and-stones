@@ -40,6 +40,7 @@ RenderOutput::~RenderOutput(void)
 void RenderOutput::invalidate(void)
 {
     reload_uniforms = true;
+    reset_transform = true;
 }
 
 
@@ -92,7 +93,7 @@ void RenderOutput::resizeGL(int wdt, int hgt)
 
     glViewport(0, 0, w, h);
 
-    proj = mat4::projection(fov, static_cast<float>(w) / h, .1f, 100.f);
+    proj = mat4::projection(fov, static_cast<float>(w) / h, 1.f, 1000.f);
 }
 
 
@@ -101,6 +102,14 @@ void RenderOutput::paintGL(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (asf_model) {
+        if (amc_ani) {
+            if (play_animation) {
+                if (++frame() >= amc_ani->first_frame() + static_cast<int>(amc_ani->frames().size())) {
+                    frame() = amc_ani->first_frame();
+                }
+            }
+        }
+
         render_asf();
     }
 
@@ -110,15 +119,28 @@ void RenderOutput::paintGL(void)
 
 void RenderOutput::render_asf(void)
 {
-    mat4 cmv(mv);
-
     for (gl::program *prg: {bone_prg, cone_prg, limit_prg}) {
         prg->use();
         prg->uniform<mat4>("proj") = proj;
     }
 
-    mv.translate(asf_model->root_position);
-    render_asf_bone(asf_model->root, mv, 0);
+    if (reset_transform) {
+        if (amc_ani) {
+            if (cur_frame < amc_ani->first_frame()) {
+                cur_frame = amc_ani->first_frame();
+            } else if (cur_frame >= amc_ani->first_frame() + static_cast<int>(amc_ani->frames().size())) {
+                cur_frame = amc_ani->first_frame() + amc_ani->frames().size() - 1;
+            }
+
+            amc_ani->apply_frame(cur_frame);
+        } else {
+            asf_model->reset_transforms();
+        }
+
+        reset_transform = false;
+    }
+
+    render_asf_bone(asf_model->root_index(), 0);
 }
 
 
@@ -134,84 +156,63 @@ static const vec3 colors[] = {
 };
 
 
-void RenderOutput::render_asf_bone(int bi, const mat4 &parent_mv, int hdepth)
+void RenderOutput::render_asf_bone(int bi, int hdepth)
 {
-    ASF::Bone &bone = asf_model->bones[bi];
-
-    mat4 next_mv(parent_mv.translated(bone.length * bone.direction));
-    for (int child = bone.first_child; child >= 0; child = asf_model->bones[child].next_sibling) {
-        render_asf_bone(child, next_mv, hdepth + 1);
-    }
-
-    if (!bone.id) {
-        // root
-        return;
-    }
+    const ASF::Bone &bone = asf_model->bones()[bi];
 
 
-    // Transformation for (0; 1; 0) -> bone.direction
-    vec3 rot_axis;
-    float angle;
+    if (bone.id) {
+        // not root
 
-    if (bone.direction != vec3(0.f, 1.f, 0.f)) {
-        rot_axis = vec3(0.f, 1.f, 0.f).cross(bone.direction);
-        angle = acosf(bone.direction.y()); // acosf(vec3(0.f, 1.f, 0.f).dot(bone.direction))
-    } else {
-        rot_axis = vec3(0.f, 0.f, 1.f);
-        angle = 0.f;
-    }
+        mat4 bone_mv(mv * bone.motion_trans * bone.bone_dir_trans);
+        mat3 bone_nrm(mat3(bone_mv).transposed_inverse());
+        for (bool tip: {false, true}) {
+            gl::program *prg = tip ? cone_prg : bone_prg;
+            gl::vertex_array *va = tip ? cone_va : bone_va;
 
-    mat4 cmv(parent_mv.rotated(angle, rot_axis));
+            prg->use();
+            prg->uniform<vec3>("color") = colors[hdepth % 8];
+            prg->uniform<float>("length") = bone.length;
+            prg->uniform<mat4>("mv") = bone_mv;
+            prg->uniform<mat3>("nrm_mat") = bone_nrm;
 
-
-    // Transformation to local coordinate system (as specified by bone.axis)
-    mat4 omv(parent_mv.rotated(bone.axis.z(), vec3(0.f, 0.f, 1.f))
-                      .rotated(bone.axis.y(), vec3(0.f, 1.f, 0.f))
-                      .rotated(bone.axis.x(), vec3(1.f, 0.f, 0.f)));
-
-
-    for (bool tip: {false, true}) {
-        gl::program *prg = tip ? cone_prg : bone_prg;
-        gl::vertex_array *va = tip ? cone_va : bone_va;
-
-        prg->use();
-        prg->uniform<vec3>("color") = colors[hdepth % 8];
-        prg->uniform<float>("length") = bone.length;
-        prg->uniform<mat4>("mv") = cmv;
-        prg->uniform<mat3>("nrm_mat") = mat3(cmv).transposed_inverse();
-
-        va->draw(GL_TRIANGLES);
-    }
-
-    limit_prg->use();
-    for (std::pair<const int, std::pair<float, float>> &dof: bone.dof) {
-        ASF::Axis axis = static_cast<ASF::Axis>(dof.first);
-        std::pair<float, float> &limits = dof.second;
-
-        if ((axis != ASF::RX) && (axis != ASF::RY) && (axis != ASF::RZ)) {
-            continue;
+            va->draw(GL_TRIANGLES);
         }
 
-        limit_prg->uniform<vec3>("axis") = axis == ASF::RX ? vec3(1.f, 0.f, 0.f)
-                                         : axis == ASF::RY ? vec3(0.f, 1.f, 0.f)
-                                         :                   vec3(0.f, 0.f, 1.f);
-#if 1
-        limit_prg->uniform<mat4>("mv") = omv;
-#else
-        limit_prg->uniform<mat4>("mv") = cmv;
-#endif
+        if (limits) {
+            limit_prg->use();
+            limit_prg->uniform<mat4>("mv") = mv * bone.motion_trans * bone.local_trans;
 
-        float a = limits.first, b = limits.second;
-        while (b < 0) {
-            b += 2 * static_cast<float>(M_PI);
-        }
-        while (a > 0) {
-            a -= 2 * static_cast<float>(M_PI);
-        }
-        limit_prg->uniform<float>("l1") = a;
-        limit_prg->uniform<float>("l2") = b;
+            for (const std::pair<const int, std::pair<float, float>> &dof: bone.dof) {
+                ASF::Axis axis = static_cast<ASF::Axis>(dof.first);
+                const std::pair<float, float> &limit = dof.second;
 
-        limit_va->draw(GL_POINTS);
+                if ((axis != ASF::RX) && (axis != ASF::RY) && (axis != ASF::RZ)) {
+                    continue;
+                }
+
+                limit_prg->uniform<vec3>("axis") = axis == ASF::RX ? vec3(1.f, 0.f, 0.f)
+                                                 : axis == ASF::RY ? vec3(0.f, 1.f, 0.f)
+                                                 :                   vec3(0.f, 0.f, 1.f);
+
+                float a = limit.first, b = limit.second;
+                while (b < 0) {
+                    b += 2 * static_cast<float>(M_PI);
+                }
+                while (a > 0) {
+                    a -= 2 * static_cast<float>(M_PI);
+                }
+                limit_prg->uniform<float>("l1") = a;
+                limit_prg->uniform<float>("l2") = b;
+
+                limit_va->draw(GL_POINTS);
+            }
+        }
+    }
+
+
+    for (int child = bone.first_child; child >= 0; child = asf_model->bones()[child].next_sibling) {
+        render_asf_bone(child, hdepth + 1);
     }
 }
 
@@ -270,7 +271,7 @@ void RenderOutput::mouseMoveEvent(QMouseEvent *evt)
 
 void RenderOutput::wheelEvent(QWheelEvent *evt)
 {
-    mv = mat4::identity().translated(vec3(0.f, 0.f, evt->delta() / 360.f)) * mv;
+    mv = mat4::identity().translated(vec3(0.f, 0.f, evt->delta() / 50.f)) * mv;
 
     reload_uniforms = true;
 }

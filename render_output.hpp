@@ -12,6 +12,7 @@
 #include <dake/gl/shader.hpp>
 #include <dake/gl/vertex_array.hpp>
 
+#include "amc.hpp"
 #include "asf.hpp"
 
 
@@ -37,9 +38,24 @@ class RenderOutput:
         const ASF *asf(void) const
         { return asf_model; }
         ASF *&asf(void)
-        { return asf_model; }
+        { reset_transform = true; return asf_model; }
+
+        const AMC *amc(void) const
+        { return amc_ani; }
+        AMC *&amc(void)
+        { reset_transform = true; return amc_ani; }
+
+        int frame(void) const
+        { return cur_frame; }
+        int &frame(void)
+        { reset_transform = true; return cur_frame; }
+
+        void play(bool state) { play_animation = state; }
 
         void invalidate(void);
+
+    public slots:
+        void show_limits(int state) { limits = state; }
 
     protected:
         void initializeGL(void);
@@ -52,7 +68,7 @@ class RenderOutput:
 
     private:
         void render_asf(void);
-        void render_asf_bone(int bone, const dake::math::mat4 &parent_mv, int depth);
+        void render_asf_bone(int bone, int depth);
 
         QTimer *redraw_timer;
         dake::math::mat4 proj, mv;
@@ -61,10 +77,15 @@ class RenderOutput:
         dake::gl::vertex_array *bone_va, *cone_va, *limit_va;
         bool rotate_camera = false, move_camera = false;
         bool reload_uniforms = true;
+        bool limits = false;
         float rot_l_x, rot_l_y;
         float fov = static_cast<float>(M_PI) / 4.f;
         int w, h;
         ASF *asf_model = nullptr;
+        AMC *amc_ani = nullptr;
+        bool reset_transform = true;
+        int cur_frame = 0;
+        bool play_animation = true;
 };
 
 #endif
