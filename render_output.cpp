@@ -26,7 +26,7 @@ using namespace dake::math;
 RenderOutput::RenderOutput(QGLFormat fmt, QWidget *pw):
     QGLWidget(fmt, pw),
     proj(mat4::identity()),
-    mv  (mat4::identity().translated(vec3(0.f, 0.f, -40.f)))
+    mv  (mat4::identity().translated(vec3(0.f, 0.f, -3.f)))
 {
     redraw_timer = new QTimer(this);
     connect(redraw_timer, SIGNAL(timeout()), this, SLOT(updateGL()));
@@ -109,7 +109,7 @@ void RenderOutput::resizeGL(int wdt, int hgt)
 
     glViewport(0, 0, w, h);
 
-    proj = mat4::projection(fov, static_cast<float>(w) / h, 1.f, 1000.f);
+    proj = mat4::projection(fov, static_cast<float>(w) / h, .02f, 50.f);
 }
 
 
@@ -148,7 +148,7 @@ void RenderOutput::paintGL(void)
 
 void RenderOutput::render_asf(void)
 {
-    for (gl::program *prg: {bone_prg, cone_prg, limit_prg}) {
+    for (gl::program *prg: {bone_prg, cone_prg}) {
         prg->use();
         prg->uniform<mat4>("proj") = proj;
     }
@@ -214,7 +214,7 @@ void RenderOutput::render_asf_bone(int bi, int hdepth)
 
         if (limits) {
             limit_prg->use();
-            limit_prg->uniform<mat4>("mv") = mv * bone.still_trans * bone.local_trans;
+            limit_prg->uniform<mat4>("mvp") = proj * mv * bone.still_trans * bone.local_trans;
 
             for (const std::pair<const int, std::pair<float, float>> &dof: bone.dof) {
                 ASF::Axis axis = static_cast<ASF::Axis>(dof.first);
@@ -315,7 +315,7 @@ void RenderOutput::mouseMoveEvent(QMouseEvent *evt)
                              .rotated(dx / 4.f * static_cast<float>(M_PI) / 180.f, vec3(0.f, 1.f, 0.f))
                             * mv;
     } else {
-        mv = mat4::identity().translated(vec3(-dx / 20.f, dy / 20.f, 0.f)) * mv;
+        mv = mat4::identity().translated(vec3(-dx / 400.f, dy / 400.f, 0.f)) * mv;
     }
 
     reload_uniforms = true;
@@ -327,7 +327,7 @@ void RenderOutput::mouseMoveEvent(QMouseEvent *evt)
 
 void RenderOutput::wheelEvent(QWheelEvent *evt)
 {
-    mv = mat4::identity().translated(vec3(0.f, 0.f, evt->delta() / 50.f)) * mv;
+    mv = mat4::identity().translated(vec3(0.f, 0.f, evt->delta() / 1000.f)) * mv;
 
     reload_uniforms = true;
 }

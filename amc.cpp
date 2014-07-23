@@ -138,6 +138,7 @@ AMC::AMC(std::ifstream &s, ASF *a):
                     }
 
                     fs[cfi].root_rotation *= angle_unit;
+                    fs[cfi].root_translation *= asf->internal_length_unit();
                 } else {
                     const auto &bi = bone_indices.find(bone_name);
                     if (bi == bone_indices.end()) {
