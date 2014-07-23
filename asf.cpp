@@ -23,7 +23,7 @@ static std::string strip(const std::string &s)
     }
 
     for (; (front <= back) && isspace(s[front]); front++);
-    for (; (back >= front) && isspace(s[back]); back++);
+    for (; (back >= front) && isspace(s[back]); back--);
 
     if (front > back) {
         return std::string("");
