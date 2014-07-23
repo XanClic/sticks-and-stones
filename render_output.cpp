@@ -1,5 +1,6 @@
 #include <dake/gl/gl.hpp>
 
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -119,16 +120,29 @@ void RenderOutput::paintGL(void)
     if (asf_model) {
         if (amc_ani) {
             if (play_animation) {
-                if (++frame() >= amc_ani->first_frame() + static_cast<int>(amc_ani->frames().size())) {
-                    frame() = amc_ani->first_frame();
+                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+                if (!reset_transform) {
+                    std::chrono::duration<float> diff = now - last_frame_time_point;
+                    partial_frame += diff.count() * playback_fps;
+                }
+                last_frame_time_point = std::chrono::steady_clock::now();
+
+                if (partial_frame >= 1.f) {
+                    while (partial_frame >= 1.f) {
+                        if (++cur_frame >= amc_ani->first_frame() + static_cast<int>(amc_ani->frames().size())) {
+                            cur_frame = amc_ani->first_frame();
+                        }
+                        partial_frame -= 1.f;
+                    }
+
+                    emit frame_changed(cur_frame);
+                    reset_transform = true;
                 }
             }
         }
 
         render_asf();
     }
-
-    swapBuffers();
 }
 
 
@@ -143,8 +157,12 @@ void RenderOutput::render_asf(void)
         if (amc_ani) {
             if (cur_frame < amc_ani->first_frame()) {
                 cur_frame = amc_ani->first_frame();
+                partial_frame = 0.f;
+                emit frame_changed(cur_frame);
             } else if (cur_frame >= amc_ani->first_frame() + static_cast<int>(amc_ani->frames().size())) {
                 cur_frame = amc_ani->first_frame() + amc_ani->frames().size() - 1;
+                partial_frame = 0.f;
+                emit frame_changed(cur_frame);
             }
 
             amc_ani->apply_frame(cur_frame);

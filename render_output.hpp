@@ -3,6 +3,7 @@
 
 #include <dake/gl/gl.hpp>
 
+#include <chrono>
 #include <cmath>
 #include <QGLWidget>
 #include <QTimer>
@@ -48,15 +49,23 @@ class RenderOutput:
         int frame(void) const
         { return cur_frame; }
         int &frame(void)
-        { reset_transform = true; return cur_frame; }
+        { reset_transform = true; partial_frame = 0.f; return cur_frame; }
 
-        void play(bool state) { play_animation = state; }
+        int fps(void) const
+        { return playback_fps; }
+        int &fps(void)
+        { return playback_fps; }
+
+        void play(bool state) { play_animation = state; reset_transform = true; }
 
         void invalidate(void);
 
     public slots:
         void show_limits(int state) { limits = state; }
         void adapt_limits(int state) { offset_limits = state; }
+
+    signals:
+        void frame_changed(int frame);
 
     protected:
         void initializeGL(void);
@@ -85,8 +94,10 @@ class RenderOutput:
         ASF *asf_model = nullptr;
         AMC *amc_ani = nullptr;
         bool reset_transform = true;
-        int cur_frame = 0;
-        bool play_animation = true;
+        int cur_frame = 0, playback_fps = 60;
+        float partial_frame = 0.f;
+        bool play_animation = false;
+        std::chrono::steady_clock::time_point last_frame_time_point;
 };
 
 #endif
