@@ -226,6 +226,8 @@ void AMC::apply_frame_to_bone(int bi, int frame, const mat4 &mv)
     bone.local_trans_inv = bone.local_trans.inverse();
 
 
+    bone.still_trans = mv;
+
     mat4 motion(mat4::identity());
     for (auto it = bone.axis_order.rbegin(); it != bone.axis_order.rend(); ++it) {
         switch (*it) {

@@ -35,7 +35,7 @@ class Window:
         RenderOutput *gl;
         QComboBox *amcs;
         QPushButton *load;
-        QCheckBox *show_limits;
+        QCheckBox *show_limits, *adapt_limits;
 
         QFrame *frames[1];
 

@@ -56,6 +56,7 @@ class RenderOutput:
 
     public slots:
         void show_limits(int state) { limits = state; }
+        void adapt_limits(int state) { offset_limits = state; }
 
     protected:
         void initializeGL(void);
@@ -77,7 +78,7 @@ class RenderOutput:
         dake::gl::vertex_array *bone_va, *cone_va, *limit_va;
         bool rotate_camera = false, move_camera = false;
         bool reload_uniforms = true;
-        bool limits = false;
+        bool limits = false, offset_limits = false;
         float rot_l_x, rot_l_y;
         float fov = static_cast<float>(M_PI) / 4.f;
         int w, h;

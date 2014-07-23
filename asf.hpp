@@ -30,6 +30,8 @@ class ASF {
 
             // Local transformation (from the axis)
             dake::math::mat4 local_trans, local_trans_inv;
+            // Non-motion transformation
+            dake::math::mat4 still_trans;
             // Motion transformation (some site calls it "local transform", but
             // it isn't even in the local coordinate system)
             dake::math::mat4 motion_trans;
