@@ -137,7 +137,8 @@ void ASF::read_units_section(std::ifstream &s)
         if (unit == "mass") {
             line_ss >> mass_default;
         } else if (unit == "length") {
-            line_ss >> length_default;
+            line_ss >> length_unit;
+            length_unit = 2.54e-2f / length_unit;
         } else if (unit == "angle") {
             line_ss >> unit;
             if (unit == "deg") {
@@ -228,7 +229,6 @@ void ASF::read_bonedata_section(std::ifstream &s)
 
         Bone bone;
         bone.axis_order = r_axis;
-        bone.length = length_default;
 
         bool got_end = false;
         while (getline(s) && (next_input_line.front() != ':')) {
@@ -252,6 +252,7 @@ void ASF::read_bonedata_section(std::ifstream &s)
                 bone.direction.normalize();
             } else if (keyword == "length") {
                 line_ss >> bone.length;
+                bone.length *= length_unit;
             } else if (keyword == "axis") {
                 line_ss >> bone.axis.x() >> bone.axis.y() >> bone.axis.z();
                 bone.axis *= angle_unit;

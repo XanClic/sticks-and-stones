@@ -12,7 +12,7 @@ uniform float length;
 void main(void)
 {
     // cut short (so it doesn't break the tip)
-    vec3 vertex = vec3(in_pos.x, max(0.0, (length - 0.3) * in_pos.y), in_pos.z);
+    vec3 vertex = vec3(in_pos.x, max(0.0, (length - 0.03) * in_pos.y), in_pos.z);
     gl_Position = proj * mv * vec4(vertex, 1.0);
 
     vf_normal = normalize(nrm_mat * in_nrm);

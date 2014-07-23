@@ -52,6 +52,8 @@ class ASF {
 
         void reset_transforms(void);
 
+        float internal_length_unit(void) const { return length_unit; }
+
 
     private:
         void read_version_section(std::ifstream &s);
@@ -72,7 +74,7 @@ class ASF {
         int root = -1;
 
         float mass_default = 1.f;
-        float length_default = 1.f;
+        float length_unit = 2.54e-2f; // inches -> meters
         float angle_unit = 1.f; // rad
 
         // Quality technology
