@@ -58,6 +58,7 @@ void RenderOutput::initializeGL(void)
     glClearColor(0.f, 0.f, 0.f, 1.f);
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     bone_prg = new gl::program {gl::shader::vert("assets/bone_vert.glsl"), gl::shader::frag("assets/bone_frag.glsl")};
     cone_prg = new gl::program {gl::shader::vert("assets/cone_vert.glsl"), gl::shader::frag("assets/bone_frag.glsl")};
@@ -68,19 +69,33 @@ void RenderOutput::initializeGL(void)
         prg->bind_frag("out_col", 0);
     }
 
-    limit_prg = new gl::program {gl::shader::vert("assets/limit_vert.glsl"), gl::shader::geom("assets/limit_geom.glsl"), gl::shader::frag("assets/limit_frag.glsl")};
+    limit_prg = new gl::program {gl::shader::vert("assets/limit_vert.glsl"), gl::shader::frag("assets/limit_frag.glsl")};
+    limit_prg->bind_attrib("in_rad_ang", 0);
     limit_prg->bind_frag("out_col", 0);
 
     // lel
     bone_va = gl::load_obj("assets/cylinder.obj").sections.front().make_vertex_array(0, -1, 1);
     cone_va = gl::load_obj("assets/cone.obj").sections.front().make_vertex_array(0, -1, 1);
 
-    float nothing = 0.f;
+    vec2 angle_data[15];
+    angle_data[0][0] = 0.f;
+    angle_data[0][1] = 0.f;
+
+    // frontfaces
+    for (int i = 1; i < 8; i++) {
+        angle_data[i][0] = 1.f;
+        angle_data[i][1] = (i - 1) / 7.f;
+    }
+    // backfaces
+    for (int i = 8; i < 15; i++) {
+        angle_data[i][0] = 1.f;
+        angle_data[i][1] = (14 - i) / 7.f;
+    }
 
     limit_va = new gl::vertex_array;
-    limit_va->set_elements(1); // I feel bad
-    limit_va->attrib(0)->format(1); // Really bad
-    limit_va->attrib(0)->data(&nothing); // (;_;)
+    limit_va->set_elements(15);
+    limit_va->attrib(0)->format(2);
+    limit_va->attrib(0)->data(angle_data);
 
     redraw_timer->start(0);
 }
@@ -181,7 +196,7 @@ void RenderOutput::render_asf_bone(int bi, int hdepth)
 
         if (limits) {
             limit_prg->use();
-            limit_prg->uniform<mat4>("mv") = mv * bone.motion_trans * bone.local_trans;
+            limit_prg->uniform<mat4>("mv") = mv * bone.still_trans * bone.local_trans;
 
             for (const std::pair<const int, std::pair<float, float>> &dof: bone.dof) {
                 ASF::Axis axis = static_cast<ASF::Axis>(dof.first);
@@ -191,21 +206,44 @@ void RenderOutput::render_asf_bone(int bi, int hdepth)
                     continue;
                 }
 
+                float a = limit.first, b = limit.second;
+
+                if (offset_limits) {
+                    vec3 local_bone_dir = mat3(bone.local_trans_inv) * bone.direction;
+                    vec2 projected_bone_dir;
+
+                    switch (axis) {
+                        case ASF::RX: projected_bone_dir = vec2(local_bone_dir.y(), local_bone_dir.z()); break;
+                        case ASF::RY: projected_bone_dir = vec2(local_bone_dir.z(), local_bone_dir.x()); break;
+                        case ASF::RZ: projected_bone_dir = vec2(local_bone_dir.y(), local_bone_dir.x()); break;
+                        default: throw std::invalid_argument("Bad rotation axis");
+                    }
+
+                    if (projected_bone_dir.length() > .1f) {
+                        float ofs = atan2f(projected_bone_dir.y(), projected_bone_dir.x());
+                        a += ofs;
+                        b += ofs;
+
+                        limit_prg->uniform<float>("fadeout") = .5f;
+                    } else {
+                        limit_prg->uniform<float>("fadeout") = .2f;
+                    }
+                } else {
+                    limit_prg->uniform<float>("fadeout") = .3f;
+                }
+
+                while (b < a) {
+                    b += 2 * static_cast<float>(M_PI);
+                }
+
                 limit_prg->uniform<vec3>("axis") = axis == ASF::RX ? vec3(1.f, 0.f, 0.f)
                                                  : axis == ASF::RY ? vec3(0.f, 1.f, 0.f)
                                                  :                   vec3(0.f, 0.f, 1.f);
 
-                float a = limit.first, b = limit.second;
-                while (b < 0) {
-                    b += 2 * static_cast<float>(M_PI);
-                }
-                while (a > 0) {
-                    a -= 2 * static_cast<float>(M_PI);
-                }
                 limit_prg->uniform<float>("l1") = a;
                 limit_prg->uniform<float>("l2") = b;
 
-                limit_va->draw(GL_POINTS);
+                limit_va->draw(GL_TRIANGLE_FAN);
             }
         }
     }

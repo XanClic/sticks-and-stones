@@ -66,12 +66,14 @@ Window::Window(void):
     load = new QPushButton("Load AMC");
     amcs = new QComboBox;
     show_limits = new QCheckBox("Show limits");
+    adapt_limits = new QCheckBox("Adapt to still bones");
 
     l2 = new QVBoxLayout;
     l2->addWidget(load);
     l2->addWidget(amcs);
     l2->addWidget(frames[0]);
     l2->addWidget(show_limits);
+    l2->addWidget(adapt_limits);
     l2->addStretch();
 
 
@@ -95,6 +97,7 @@ Window::Window(void):
     gl = new RenderOutput(fmt);
 
     connect(show_limits, SIGNAL(stateChanged(int)), gl, SLOT(show_limits(int)));
+    connect(adapt_limits, SIGNAL(stateChanged(int)), gl, SLOT(adapt_limits(int)));
 
     connect(load, SIGNAL(pressed()), this, SLOT(load_amc()));
     connect(amcs, SIGNAL(currentIndexChanged(int)), this, SLOT(refresh_amc(int)));

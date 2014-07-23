@@ -430,6 +430,7 @@ void ASF::reset_bone_transform(int bi, const mat4 &mv)
 
     bone.local_trans_inv = bone.local_trans.inverse();
 
+    bone.still_trans  = mv;
     bone.motion_trans = mv;
 
 
